@@ -1,4 +1,4 @@
-# Inverted Pendulum (Furuta) — LQR Control
+# Inverted Pendulum — PID and LQR Control
 
 Single inverted pendulum built on an ESP32, using an PID and LQR controller, as well as a simple 
 swing up algorithm. PID and LQR derived and tuned in Python before deployment to hardware.
