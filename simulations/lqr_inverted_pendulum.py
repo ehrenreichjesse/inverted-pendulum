@@ -4,16 +4,16 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
 # constants
-m = 0.034
-M = 0.03
+m = 0.055
+M = 0.14
 g = 9.81
-L = 0.17
-I = 0.017*L**2 + 1/3*0.017*L**2
+L = 0.3
+I = 1/3*m*L**2
 dt = 0.02
 t_max = 2
 
 # initial conditions
-theta = np.radians(50)
+theta = np.radians(20)
 theta_dot = 0
 base_dot = 0
 base = 0
@@ -25,8 +25,8 @@ b_21 = (I + m*L**2)/D
 b_41 = m*L/D
 A = np.array([[0, 1, 0, 0], [0, 0, a_23, 0], [0, 0, 0, 1], [0, 0, a_43, 0]])
 B = np.array([[0], [b_21], [0], [b_41]])
-Q = np.diag([1000, 0.1, 10, 0.1])
-R = 5
+Q = np.diag([44.4, 1, 2.8, 0.25])
+R = 0.05
 
 K, S, E = control.lqr(A, B, Q, R)
 K = K.flatten()
@@ -61,9 +61,9 @@ yDir = L*np.cos(theta_list)
 # animation
 fig, ax = plt.subplots()
 
-scale = 4
+scale = 1
 ax.set_xlim(-scale*L, scale*L)
-ax.set_ylim(-scale*L, scale*L)
+ax.set_ylim(-scale*L, scale*L*1.2)
 ax.set_aspect('equal')
 
 # plot elements

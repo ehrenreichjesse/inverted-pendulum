@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <ESP32Encoder.h>
+#include <Bluepad32.h>
 #include <ArduinoEigen.h>
 
 using namespace Eigen;
@@ -8,12 +9,23 @@ ESP32Encoder pendulumEncoder;
 ESP32Encoder linearEncoder;
 
 float power;
+float m = 0;
+float M = 0;
+float g = 9.81;
+float L = 0;
+float I = 0;
 
-Vector4f x;
-Matrix<float, 1, 4> K;
+float LQRcritAngle = 0.52;
+float swingUpCritAngle = 1;
 
-float LQRcritAngle = 0.3;
-float u = 0;
+enum State {
+  STARTUP,
+  SWINGUP,
+  BALANCE,
+  STOPPED
+};
+
+State state = STARTUP;
 
 void driveMotor(int power) {
   power = constrain(power, -255, 255);
@@ -79,7 +91,7 @@ float getFilteredAngularVelocity(void) {
 }
 
 float getPosition(void) {
-  float x = -linearEncoder.getCount()/15920.0;
+  float x = -linearEncoder.getCount()/159.2;
 
   return x;
 }
@@ -108,8 +120,6 @@ float getLinearVelocity(void) {
 void setup() {
   Serial.begin(115200);
 
-  K << 21.07, 13.2, 40.1, 8.1;
-
   // enable pull up resistors
   ESP32Encoder::useInternalWeakPullResistors = puType::up;
 
@@ -131,18 +141,53 @@ void setup() {
 }
 
 void loop() {
+  bool positionOK = abs(getPosition()) < 15;
+
   float theta = getAngle();
-  float omega = getFilteredAngularVelocity();
-  float position = getPosition();
-  float linearVelocity = getLinearVelocity();
-  x << position, linearVelocity, theta, omega;
+  float omega = getAngularVelocity();
 
-  bool positionOK = abs(position) < 0.15;
-  bool angleOK = abs(theta) < LQRcritAngle;
+  if (positionOK) {
+    switch(state) {
+      case STARTUP:
+        if (omega > 0) {
+          power = -190*cos(theta);
+        }
+        else {
+          power = 190*cos(theta);
+        }
 
-  if (positionOK && angleOK) {
-    u = (K*x)(0);
-    power = u*44.7;
+        if (abs(theta) < swingUpCritAngle) {
+          state = SWINGUP;
+        }
+
+        break;
+    
+      case SWINGUP: {
+        float energy = 0.5f*omega*omega + (1 + cos(theta));
+        float energyError = energy - 2.0f;
+        power = k*energyError*omega*cos(theta);
+
+        if (abs(theta) < PIDcritAngle) {
+          state = BALANCE;
+        }
+
+        break;
+      }
+
+      case BALANCE:
+        power = KpAngle*getAngle() + KdAngle*getAngularVelocity() + KiAngle*getAngularIntegral() + KpLinear*getPosition() + KdLinear*getLinearVelocity();
+
+        if (abs(theta) > PIDcritAngle) {
+          state = STOPPED;
+        }
+
+        break;
+
+      case STOPPED:
+        power = 0;
+
+        break;
+    }
   }
   else {
     power = 0;
